@@ -695,6 +695,186 @@ function layoutHome() {
 }
 
 // =====================================================================================================
+// =====================================================================================================
+// Spatial OS: Android XR's Home Space, made for a glasses-free screen. You look through the display into
+// an environment; app panels stand on a curved arc in depth, a launcher orbit of Material shapes circles
+// in front, Quick Settings float nearest, and the Gemini orb summons help forward.
+// =====================================================================================================
+const OS_PANELS = [
+  { id: 'youtube', name: 'YouTube', tint: '#ff4e45' },
+  { id: 'chrome', name: 'Chrome', tint: '#8ab4ff' },
+  { id: 'photos', name: 'Photos', tint: '#ffd27a' },
+  { id: 'maps', name: 'Maps', tint: '#9cd67e' },
+  { id: 'gmail', name: 'Gmail', tint: '#f2b8b5' },
+];
+function drawOSPanel(ctx, w, h, p, i, focused) {
+  const k = w / 640;
+  ctx.fillStyle = '#16181d'; ctx.fillRect(0, 0, w, h);
+  // title bar
+  fillShape(ctx, 30 * k, 28 * k, 13 * k, 'cookie', p.tint);
+  T(ctx, p.name, 52 * k, 36 * k, 22 * k, 600, C.on);
+  ['search', 'plus'].forEach((g, j) => glyph(ctx, g, w - (32 + j * 40) * k, 28 * k, 18 * k, C.onv));
+  const top = 56 * k, ih = h - top - 14 * k;
+  if (p.id === 'youtube') {
+    photo(ctx, 6, 14 * k, top, w - 28 * k, ih * 0.66, true);
+    fillShape(ctx, w / 2, top + ih * 0.33, 34 * k, 'pill', 'rgba(255,0,0,0.9)'); glyph(ctx, 'play', w / 2 + 3 * k, top + ih * 0.33, 30 * k, '#fff');
+    T(ctx, 'Aurora over the fjords · 4K', 16 * k, top + ih * 0.8, 22 * k, 600, C.on); T(ctx, 'Nature Lab · 2.1M views', 16 * k, top + ih * 0.94, 16 * k, 400, C.onv);
+  } else if (p.id === 'chrome') {
+    pill(ctx, 14 * k, top, w - 28 * k, 34 * k, C.sch); T(ctx, 'android.com/xr', 34 * k, top + 23 * k, 16 * k, 400, C.onv);
+    T(ctx, 'Spatial apps, on any screen', 16 * k, top + 78 * k, 30 * k, 600, C.on);
+    wrapText(ctx, 'Panels you can arrange in depth, an environment behind the glass, and Gemini that brings the right window to you.', 16 * k, top + 112 * k, w - 32 * k, 24 * k, 17 * k, 400, C.onv, 3);
+    photo(ctx, 2, 16 * k, top + 190 * k, w - 32 * k, ih - 196 * k, false);
+  } else if (p.id === 'photos') {
+    for (let j = 0; j < 12; j++) { const cw = (w - 40 * k) / 4, ch = (ih - 20 * k) / 3; photo(ctx, j, 14 * k + (j % 4) * (cw + 4 * k), top + Math.floor(j / 4) * (ch + 6 * k), cw, ch, j % 3 === 0); }
+  } else if (p.id === 'maps') {
+    ctx.fillStyle = '#1d2a22'; ctx.fillRect(14 * k, top, w - 28 * k, ih);
+    ctx.strokeStyle = '#2f4436'; ctx.lineWidth = 10 * k;
+    for (let j = 0; j < 6; j++) { ctx.beginPath(); ctx.moveTo(14 * k, top + j * ih / 5); ctx.lineTo(w - 14 * k, top + j * ih / 5 + 30 * k); ctx.stroke(); }
+    ctx.strokeStyle = '#8ab4ff'; ctx.lineWidth = 7 * k; ctx.beginPath(); ctx.moveTo(60 * k, top + ih * 0.85); ctx.lineTo(250 * k, top + ih * 0.5); ctx.lineTo(w - 90 * k, top + ih * 0.25); ctx.stroke();
+    fillShape(ctx, w - 90 * k, top + ih * 0.25, 14 * k, 'circle', '#ff5449');
+    pill(ctx, 20 * k, top + 10 * k, 230 * k, 46 * k, 'rgba(22,24,29,0.92)'); T(ctx, '18 min · Ritual Coffee', 38 * k, top + 40 * k, 17 * k, 600, C.on);
+  } else {
+    [['Ana Reyes', 'Kyoto trip, day 2 plan'], ['Pixel Team', 'Your Android XR tips'], ['Theo', 'Climbing Saturday?'], ['Calendar', 'Design review moved']].forEach(([a, b], j) => {
+      const y = top + j * (ih / 4);
+      fillShape(ctx, 36 * k, y + 30 * k, 20 * k, 'circle', [C.priC, C.terC, C.grnC, C.secC][j]);
+      T(ctx, a[0], 36 * k, y + 37 * k, 18 * k, 600, C.on, 'center');
+      T(ctx, a, 70 * k, y + 26 * k, 19 * k, 600, C.on); T(ctx, b, 70 * k, y + 50 * k, 16 * k, 400, C.onv);
+    });
+  }
+  if (focused) { ctx.strokeStyle = p.tint; ctx.lineWidth = 6 * k; rr(ctx, 3 * k, 3 * k, w - 6 * k, h - 6 * k, 22 * k); ctx.stroke(); }
+}
+function layoutOS() {
+  const group = new THREE.Group(), targets = [];
+  let night = false, focus = -1, arc = 0, dragStart = null, summoned = false;
+
+  // Environment behind the glass: a sky wall and a floor with a grid that runs back into it.
+  const env = tp(2.2, 1.2, 0, 700, (ctx, w, h) => {
+    const g = ctx.createLinearGradient(0, 0, 0, h);
+    if (night) { g.addColorStop(0, '#05070f'); g.addColorStop(0.6, '#13183a'); g.addColorStop(1, '#1d2148'); }
+    else { g.addColorStop(0, '#6f9fe0'); g.addColorStop(0.55, '#f2c7a5'); g.addColorStop(1, '#e7a07a'); }
+    ctx.fillStyle = g; ctx.fillRect(0, 0, w, h);
+    if (night) {
+      for (let i = 0; i < 260; i++) { ctx.fillStyle = `rgba(255,255,255,${Math.random() * 0.8})`; ctx.fillRect(Math.random() * w, Math.random() * h * 0.6, 2, 2); }
+      ctx.globalAlpha = 0.45; const a = ctx.createLinearGradient(0, h * 0.1, w, h * 0.4); a.addColorStop(0, 'rgba(80,255,180,0)'); a.addColorStop(0.5, 'rgba(80,255,180,0.8)'); a.addColorStop(1, 'rgba(120,120,255,0)');
+      ctx.fillStyle = a; ctx.beginPath(); ctx.moveTo(0, h * 0.35); ctx.bezierCurveTo(w * 0.3, h * 0.05, w * 0.6, h * 0.45, w, h * 0.15); ctx.lineTo(w, h * 0.3); ctx.bezierCurveTo(w * 0.6, h * 0.55, w * 0.3, h * 0.2, 0, h * 0.45); ctx.fill(); ctx.globalAlpha = 1;
+    } else { ctx.fillStyle = 'rgba(255,245,225,0.95)'; ctx.beginPath(); ctx.arc(w * 0.7, h * 0.42, h * 0.07, 0, Math.PI * 2); ctx.fill(); }
+    [[night ? '#1a1d36' : '#8a7aa8', 0.62], [night ? '#121428' : '#5e5a86', 0.7], [night ? '#0b0c1a' : '#3d3d63', 0.8]].forEach(([c, b], i) => {
+      ctx.fillStyle = c; ctx.beginPath(); ctx.moveTo(0, h);
+      for (let x = 0; x <= 40; x++) ctx.lineTo((x / 40) * w, h * b - Math.abs(Math.sin(x * 0.45 + i * 1.7)) * h * 0.12 - Math.sin(x * 0.13 + i) * h * 0.05);
+      ctx.lineTo(w, h); ctx.closePath(); ctx.fill();
+    });
+  }, { transparent: false });
+  env.material.depthWrite = true; env.position.z = -0.34; group.add(env);
+  const floor = new THREE.Mesh(new THREE.PlaneGeometry(2.2, 0.36), new THREE.MeshBasicMaterial({ map: canvasTex(1024, 256, (ctx, w, h) => {
+    ctx.fillStyle = '#20232c'; ctx.fillRect(0, 0, w, h); ctx.strokeStyle = 'rgba(160,190,255,0.35)'; ctx.lineWidth = 2;
+    for (let i = 0; i <= 24; i++) { ctx.beginPath(); ctx.moveTo((i / 24) * w, 0); ctx.lineTo((i / 24) * w, h); ctx.stroke(); }
+    for (let i = 0; i <= 6; i++) { ctx.beginPath(); ctx.moveTo(0, (i / 6) * h); ctx.lineTo(w, (i / 6) * h); ctx.stroke(); }
+  }), transparent: true, opacity: 0.8, toneMapped: false }));
+  floor.rotation.x = -Math.PI / 2; floor.position.set(0, -0.43, -0.16); group.add(floor);
+
+  // App panels on a curved arc around you.
+  const R = 1.0, CZ = 0.74, PW = 0.34, PH = 0.23;
+  const panels = OS_PANELS.map((p, i) => {
+    const m = tp(PW, PH, 0.03, 420, (ctx, w, h) => drawOSPanel(ctx, w, h, p, i, focus === i), { transparent: false });
+    m.material.depthWrite = true;
+    const bar = new THREE.Mesh(screenGeo(0.07, 0.008, 0.004), new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.55 }));
+    bar.position.set(0, -PH / 2 - 0.018, 0); m.add(bar);
+    m.userData.p = { th: new Spring(0, 90, 14), x: new Spring(0, 110, 15), z: new Spring(-0.3, 110, 15), ry: new Spring(0, 110, 15), k: new Spring(1, 110, 15), y: new Spring(0, 110, 15) };
+    tag(m, { panel: i }); group.add(m); targets.push(m);
+    return m;
+  });
+
+  // Launcher orbit: solid Material-shape icons circling in front of the glass.
+  const ORBIT = [['youtube', 0, 'cookie', 0], ['chrome', 1, 'circle', 1], ['photos', 2, 'clover', 2], ['maps', 3, 'squircle', 3], ['gmail', 0, 'sunny', 4], ['music', 1, 'circle', -1], ['gemini', 2, 'cookie', -2], ['settings', 3, 'clover', -3]];
+  const orbit = new THREE.Group(); orbit.position.set(0, -0.33, 0.02); group.add(orbit);
+  const orbitIcons = ORBIT.map(([id, tone, shape, act]) => {
+    const ic = appIcon(id, 0.075, tone, shape === 'sunny' ? 'cookie' : shape); tag(ic, { app: act }); orbit.add(ic); targets.push(ic); return ic;
+  });
+  let orbitA = 0;
+
+  // Gemini orb: layered glows around a shifting sphere.
+  const orb = new THREE.Group(); orb.position.set(0.66, 0.2, 0.08); group.add(orb);
+  const core = new THREE.Mesh(new THREE.SphereGeometry(0.045, 32, 20), new THREE.MeshStandardMaterial({ color: 0x8f6df0, emissive: 0x4b8bff, emissiveIntensity: 1.1, roughness: 0.2 }));
+  orb.add(core); tag(core, { orb: true }); targets.push(core);
+  const halos = GEM.map((c, i) => { const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: radialTex(c), transparent: true, opacity: 0.55, depthWrite: false, blending: THREE.AdditiveBlending })); s.scale.setScalar(0.16 + i * 0.03); orb.add(s); return s; });
+  const answer = tp(0.42, 0.2, 0.03, 420, (ctx, w, h) => {
+    const k = w / 420;
+    fillRR(ctx, 0, 0, w, h, 26 * k, 'rgba(22,24,29,0.95)');
+    glyph(ctx, 'sparkle', 26 * k, 30 * k, 22 * k, GEM[0]); T(ctx, 'Gemini', 46 * k, 38 * k, 19 * k, 600, C.on);
+    T(ctx, '“Get me to coffee before my 10:00”', 20 * k, 76 * k, 17 * k, 500, '#a8c8ff');
+    wrapText(ctx, 'Ritual Coffee is 18 min away. I brought Maps forward and moved your review notes next to it.', 20 * k, 108 * k, w - 40 * k, 22 * k, 16 * k, 400, C.onv, 3);
+    ['Start route', 'Order ahead', 'Remind me'].forEach((s, j) => { pill(ctx, (20 + j * 132) * k, h - 50 * k, 122 * k, 34 * k, j ? C.sch : C.priC); T(ctx, s, (81 + j * 132) * k, h - 27 * k, 14 * k, 600, j ? C.on : C.onPriC, 'center'); });
+  });
+  answer.position.set(0.36, 0.02, 0.15); answer.visible = false; group.add(answer); tag(answer, { orb: true }); targets.push(answer);
+
+  // Quick Settings floating nearest, along the top.
+  const QSO = [['wifi', 'Wi-Fi', 'wifi'], ['sun', 'Environment', 'env'], ['person', 'Recenter', 'center'], ['moon', 'Focus', 'focus']];
+  const qsState = { wifi: true, env: false, focus: false };
+  const qs = QSO.map(([g, label, key], i) => {
+    const m = tp(0.18, 0.05, 0.025, 120, (ctx, w, h) => {
+      const on = key === 'env' ? night : key === 'center' ? false : qsState[key];
+      pill(ctx, 0, 0, w, h, on ? C.pri : 'rgba(39,42,47,0.95)');
+      glyph(ctx, key === 'env' && night ? 'moon' : g, h * 0.55, h / 2, h * 0.5, on ? C.onPri : C.on);
+      T(ctx, key === 'env' ? (night ? 'Night sky' : 'Desert dusk') : label, h * 1.05, h * 0.64, h * 0.36, 600, on ? C.onPri : C.on);
+    });
+    m.position.set(-0.52 + i * 0.195, 0.39, 0.16); tag(m, { qs: key }); group.add(m); targets.push(m);
+    return m;
+  });
+
+  function layout(hit, dt, t) {
+    const hovered = pickOf(hit)?.panel;
+    let slot = 0;
+    const n = panels.length - (focus >= 0 ? 1 : 0);
+    panels.forEach((m, i) => {
+      const p = m.userData.p;
+      if (i === focus) {
+        p.x.to = summoned ? -0.22 : 0; p.y.to = 0.02; p.z.to = 0.02; p.ry.to = summoned ? 0.15 : 0; p.k.to = 1.4;
+      } else {
+        const th = (slot - (n - 1) / 2) * 0.37 + arc; slot++;
+        p.x.to = R * Math.sin(th); p.z.to = CZ - R * Math.cos(th); p.ry.to = -th; p.y.to = 0.06 + (hovered === i ? 0.015 : 0); p.k.to = hovered === i ? 1.06 : 1;
+        if (focus >= 0) p.z.to -= 0.05;
+      }
+      m.position.set(p.x.step(dt), p.y.step(dt) + Math.sin(t * 0.8 + i) * 0.004, p.z.step(dt));
+      m.rotation.y = p.ry.step(dt); m.scale.setScalar(p.k.step(dt));
+    });
+  }
+  const refreshPanels = () => panels.forEach((m) => m.userData.tex.redraw());
+  return {
+    group, targets,
+    enter() { panels.forEach((m) => { m.userData.p.z.v = -0.33; }); },
+    update(dt, t, hit) {
+      layout(hit, dt, t);
+      orbitA += dt * 0.25;
+      orbitIcons.forEach((ic, i) => {
+        const a = orbitA + (i / orbitIcons.length) * Math.PI * 2, front = (Math.sin(a) + 1) / 2;
+        const hov = pickOf(hit) && hitIn(hit, ic);
+        ic.position.set(Math.cos(a) * 0.52, Math.sin(t * 1.5 + i) * 0.006 + (hov ? 0.02 : 0), Math.sin(a) * 0.09);
+        ic.scale.setScalar((0.7 + front * 0.45) * (hov ? 1.15 : 1)); ic.rotation.y = -Math.cos(a) * 0.5;
+      });
+      core.material.emissive.setHSL(0.62 + Math.sin(t * 0.7) * 0.1, 0.8, 0.5);
+      halos.forEach((s, i) => { s.scale.setScalar((0.16 + i * 0.03) * (1 + 0.12 * Math.sin(t * 2 + i))); s.material.rotation = t * 0.3 * (i % 2 ? 1 : -1); });
+      orb.position.y = 0.2 + Math.sin(t * 1.1) * 0.01;
+      answer.visible = summoned;
+    },
+    click(hit) {
+      const d = pickOf(hit);
+      if (!d) { if (focus >= 0) { focus = -1; summoned = false; refreshPanels(); } return; }
+      if (d.panel !== undefined) { focus = focus === d.panel ? -1 : d.panel; if (focus < 0) summoned = false; refreshPanels(); }
+      else if (d.app !== undefined) { if (d.app >= 0) { focus = d.app; refreshPanels(); } else if (d.app === -2) { summoned = !summoned; focus = summoned ? 3 : -1; refreshPanels(); } }
+      else if (d.orb) { summoned = !summoned; focus = summoned ? 3 : -1; refreshPanels(); }
+      else if (d.qs) {
+        if (d.qs === 'env') { night = !night; env.userData.tex.redraw(); }
+        else if (d.qs === 'center') { arc = 0; focus = -1; summoned = false; refreshPanels(); }
+        else qsState[d.qs] = !qsState[d.qs];
+        qs.forEach((m) => m.userData.tex.redraw());
+      }
+    },
+    drag(dx) { if (dragStart === null) dragStart = arc; arc = clamp(dragStart + dx * 0.003, -0.6, 0.6); },
+    dragEnd() { dragStart = null; },
+  };
+}
+const hitIn = (hit, obj) => { for (let o = hit?.object; o; o = o.parent) if (o === obj) return true; return false; };
+
 export const layouts = [
   {
     key: 'icons', name: 'Pixel home screen in 3D', short: 'App grid', tagline: 'Today’s traditional layout, every icon a solid object',
@@ -735,5 +915,13 @@ export const layouts = [
     how: 'Hover a poster to pop it out, click to open its details (click again to close). Click the Gemini orb to ask for something new.',
     hint: 'Hover a poster · click the Gemini orb',
     build: layoutHome,
+  },
+  {
+    key: 'os', name: 'Android XR, for screens', short: 'Android XR for screens', tagline: 'Home Space seen through the glass: panels on an arc, Gemini at your side',
+    blurb: 'A new Android layout borrowed from Android XR but made for a glasses-free screen. The display becomes a window into a space: an environment sits behind the glass, app panels stand on a curved arc around you, a launcher orbit of Material shapes circles in front, Quick Settings float nearest and the Gemini orb brings the right panel to you.',
+    points: ['Environment behind the glass (desert dusk or a night sky with aurora)', 'App panels on a curved arc; the focused one steps forward to the glass', 'Launcher orbit: solid Material-shape icons circling in front', 'Gemini orb summons Maps forward with an answer card beside it', 'Quick Settings float in front: environment, recenter, focus'],
+    how: 'Click a panel to bring it forward (click again to send it back). Drag sideways to swing the arc. Click an orbiting icon to open its app, the Gemini orb for help, and the Quick Settings pills to change the environment or recenter.',
+    hint: 'Click a panel · drag the arc · click the Gemini orb',
+    build: layoutOS,
   },
 ];

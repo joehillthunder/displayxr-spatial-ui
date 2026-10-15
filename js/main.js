@@ -15,11 +15,13 @@ import { EyeCamera, EdgeFeather, DepthCursor, raycastHitTest } from '@displayxr/
 import { fitTo, Spring, clamp, damp } from './kit.js';
 
 const VIRTUAL_DISPLAY_HEIGHT = 1;
-const ROTATE_SECONDS = 7;
+const ROTATE_SECONDS = 7;      // dwell on a device that has no 3D apps
+const APP_SECONDS = 5.5;       // dwell on each 3D app before the next one (or the next device)
 const BRANDS = ['apple', 'google', 'samsung'];
 const BRAND_LABELS = { apple: ['Apple', 'Liquid Glass'], google: ['Google', 'Material 3 Expressive'], samsung: ['Samsung', 'One UI'] };
 
 const $ = (id) => document.getElementById(id);
+const scrub = $('scrub'), ticks = $('ticks');
 const canvas = $('stage'), cover = $('cover'), statusEl = $('status'), info = $('info');
 const params = new URLSearchParams(location.search);
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -93,7 +95,7 @@ let hoverHit = null;
 const cursorTargets = [];   // refilled each frame for the DepthCursor
 
 function targets() {
-  if (st.view === 'devices') return carousel ? carousel.items.map((it) => it.hitbox) : [];
+  if (st.view === 'devices') return carousel ? [...carousel.items.map((it) => it.hitbox), ...(activeInst(carousel.items[st.sel])?.targets || [])] : [];
   return concept?.targets || [];
 }
 function shown(o) { for (; o; o = o.parent) if (!o.visible) return false; return true; }
@@ -125,10 +127,44 @@ function buildCarousel(b) {
     const hitbox = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.7, 0.2), new THREE.MeshBasicMaterial({ visible: false }));
     hitbox.userData.item = items.length;
     wrap.add(hitbox);
+    // Where the screen sits in wrap space, so the device's 3D apps can grow out of it.
+    wrap.updateMatrixWorld(true);
+    const sb = new THREE.Box3();
+    fitted.traverse((o) => { if (o.isMesh && o.material?.map && screens.includes(o.material.map)) sb.expandByObject(o); });
+    if (sb.isEmpty()) sb.setFromObject(fitted);
+    const size = sb.getSize(new THREE.Vector3()), c = sb.getCenter(new THREE.Vector3());
+    const box = { w: size.x, h: size.y, cx: c.x, cy: c.y, z: sb.max.z };
+    const holder = new THREE.Group();
+    holder.position.set(c.x, c.y, sb.max.z + 0.004);
+    holder.visible = false;
+    wrap.add(holder);
     group.add(wrap);
-    items.push({ wrap, dev, screens, hitbox, fade: 1 });
+    items.push({ wrap, dev, screens, hitbox, box, holder, apps: dev.apps || [], cur: -1, inst: new Map(), ext: new Spring(0, 90, 14) });
   }
   return { group, items };
+}
+
+// ---- 3D apps on the device screens ----------------------------------------------------------------------
+// dev.apps: [{ name, glyph?, blurb?, build(box) → { group, targets?, update?(dt, t, hit, ext), click?(hit), enter?() } }]
+// box = { w, h } of the screen; the app's group sits at the screen centre with +z out of the glass, and
+// main.js grows it out of the screen (scale.z 0 → 1) when it appears.
+const within = (o, root) => { for (; o; o = o.parent) if (o === root) return true; return false; };
+const activeInst = (it) => (it && it.cur >= 0 ? it.inst.get(it.cur) : null);
+function showApp(it, i) {
+  if (!it.apps.length) return;
+  i = ((i % it.apps.length) + it.apps.length) % it.apps.length;
+  if (it.cur === i) return;
+  const prev = activeInst(it);
+  if (prev) prev.group.visible = false;
+  let inst = it.inst.get(i);
+  if (!inst) {
+    try { inst = it.apps[i].build(it.box); it.holder.add(inst.group); it.inst.set(i, inst); }
+    catch (e) { console.error('[spatial-ui] 3D app build failed', it.dev.name, it.apps[i].name, e); return; }
+  }
+  inst.group.visible = true;
+  it.cur = i; it.ext.v = 0; it.ext.to = 1; st.clock = 0;
+  inst.enter?.();
+  if (it === carousel.items[st.sel]) renderInfo();
 }
 
 function disposeTree(o) {
@@ -148,6 +184,7 @@ async function setBrand(id, { keepView = false } = {}) {
   glow.material.color.set(b.glow || b.accent);
   if (carousel) { content.remove(carousel.group); disposeTree(carousel.group); }
   carousel = buildCarousel(b);
+  renderTicks();
   st.sel = 0; st.pos.v = st.pos.to = 0; st.clock = 0;
   if (!keepView) st.view = 'devices';
   renderNav();
@@ -156,12 +193,12 @@ async function setBrand(id, { keepView = false } = {}) {
 
 // Every interactive scene a brand has, in nav order: the 3D icon layout, the reimagined form factors
 // (brand.layouts, keyed 'icons' | 'phone' | 'tablet' | 'monitor' | 'home'), then the spatial concepts ('1'..'3').
-const FORMS = { icons: '3D icon layout', phone: 'Phone', tablet: 'Tablet', monitor: 'Monitor', home: 'Home view' };
+const FORMS = { icons: '3D icon layout', phone: 'Phone', tablet: 'Tablet', monitor: 'Monitor', home: 'Home view', os: 'Spatial OS' };
 function sceneViews() {
   if (!brand) return [];
   const layouts = (brand.layouts || []).map((l) => ({
-    key: l.key, def: l, group: l.key === 'icons' ? '3D icons' : 'Reimagined',
-    label: l.key === 'icons' ? 'App grid in 3D' : FORMS[l.key] || l.short || l.name,
+    key: l.key, def: l, group: l.key === 'icons' ? '3D icons' : l.key === 'os' ? 'Spatial OS' : 'Reimagined',
+    label: l.key === 'icons' ? 'App grid in 3D' : l.key === 'os' ? (l.short || 'Spatial OS') : FORMS[l.key] || l.short || l.name,
   }));
   const reimagined = layouts.filter((x) => x.group === 'Reimagined');
   reimagined.forEach((x, i) => { x.n = i + 1; x.of = reimagined.length; });
@@ -189,8 +226,26 @@ async function setView(v) {
   const q = new URLSearchParams(location.search);
   q.set('brand', brand.id); q.set('view', v);
   history.replaceState(null, '', '?' + q.toString());
+  $('scrubWrap').hidden = v !== 'devices';
   renderViews(); renderInfo();
 }
+
+// Scrub bar under the stage: drag through the devices; release snaps to the nearest one.
+function renderTicks() {
+  scrub.max = String(Math.max(0, carousel.items.length - 1));
+  const n = carousel.items.length;
+  ticks.innerHTML = carousel.items.map((x, i) => {
+    const p = n > 1 ? i / (n - 1) : 0, shift = i === 0 ? 0 : i === n - 1 ? -100 : -50;
+    return `<button data-i="${i}" style="left:${(p * 100).toFixed(2)}%;transform:translateX(${shift}%)">${esc(x.dev.short || x.dev.name)}</button>`;
+  }).join('');
+  ticks.querySelectorAll('button').forEach((b) => (b.onclick = () => select(Number(b.dataset.i), true)));
+}
+scrub.addEventListener('input', () => {
+  const v = Number(scrub.value), k = Math.round(v);
+  st.scrubbing = true; st.pos.v = st.pos.to = v; st.pos.vel = 0;
+  if (k !== st.sel) { st.sel = k; renderInfo(); }
+});
+scrub.addEventListener('change', () => { st.scrubbing = false; select(Math.round(Number(scrub.value)), true); });
 
 // ---- UI ------------------------------------------------------------------------------------------------
 function renderNav() {
@@ -229,15 +284,17 @@ function renderInfo() {
       <h2>${esc(d.name)}</h2>
       <div class="sub">${esc(d.os)}${d.year ? ' · ' + esc(d.year) : ''}</div>
       <p>${esc(d.blurb)}</p>
+      ${it.apps.length ? `<div class="apps"><div class="apps-h">3D screen · tap the device for the next app</div>${it.apps.map((a, i) => `<button data-a="${i}" ${i === it.cur ? 'aria-current="true"' : ''}>${esc(a.name)}</button>`).join('')}${it.cur >= 0 && it.apps[it.cur].blurb ? `<p class="appblurb">${esc(it.apps[it.cur].blurb)}</p>` : ''}</div>` : ''}
       ${d.ui?.length ? `<ul>${d.ui.map((u) => `<li>${esc(u)}</li>`).join('')}</ul>` : ''}
       <div class="dots">${carousel.items.map((x, i) => `<button data-i="${i}" ${i === st.sel ? 'aria-current="true"' : ''}>${esc(x.dev.short || x.dev.name)}</button>`).join('')}</div>
       <div class="lang"><b>${esc(brand.lang)}.</b> ${esc(brand.langBlurb)}</div>`;
     info.querySelectorAll('.dots button').forEach((b) => (b.onclick = () => select(Number(b.dataset.i), true)));
+    info.querySelectorAll('.apps button').forEach((b) => (b.onclick = () => { showApp(it, Number(b.dataset.a)); st.userHold = 10; }));
     $('counter').textContent = `${st.sel + 1} / ${carousel.items.length}`;
-    $('hint').textContent = 'Drag to turn the device · click a side device to bring it forward';
+    $('hint').textContent = it.apps.length ? 'Touch what pops out · tap the screen for the next app · drag to turn' : 'Drag to turn the device · click a side device to bring it forward';
   } else {
     const x = findView(st.view), c = x.def;
-    const where = x.group === '3D icons' ? 'today\'s layout, in 3D' : `${x.group.toLowerCase()} ${x.n} of ${x.of}`;
+    const where = x.group === '3D icons' ? 'today\'s layout, in 3D' : x.n ? `${x.group.toLowerCase()} ${x.n} of ${x.of}` : x.group.toLowerCase();
     info.innerHTML = `
       <div class="eyebrow">${esc(brand.name)} · ${esc(where)}</div>
       <h2>${esc(c.name)}</h2>
@@ -316,9 +373,11 @@ canvas.addEventListener('pointerup', (e) => {
   const hit = pick();
   if (st.view === 'devices') {
     if (hit) {
-      const it = hit.object.userData.item;
-      if (it !== undefined && it !== st.sel) select(it, true);
-      else st.userHold = 8;
+      const front = carousel.items[st.sel], inst = activeInst(front), k = hit.object.userData.item;
+      // Touching what popped out goes to the app; touching the front device's screen opens its next 3D app.
+      if (inst && within(hit.object, front.holder)) { inst.click?.(hit); st.userHold = 10; }
+      else if (k !== undefined && k !== st.sel) select(k, true);
+      else { showApp(front, front.cur + 1); st.userHold = 10; }
     }
   } else if (concept?.click) concept.click(hit);
 });
@@ -336,10 +395,18 @@ function tick(dt, t) {
   hoverHit = pick();
   canvas.classList.toggle('hovering', !!hoverHit);
   if (st.view === 'devices' && carousel) {
-    const n = carousel.items.length;
+    const n = carousel.items.length, frontIt = carousel.items[st.sel];
+    // Auto-play: show each of the front device's 3D apps in turn, then move to the next device.
     if (st.userHold > 0) st.userHold -= dt;
-    else if (st.playing && !st.dragging) { st.clock += dt; if (st.clock > ROTATE_SECONDS) select(st.sel + 1); }
-    const pos = st.pos.step(dt);
+    else if (st.playing && !st.dragging && !st.scrubbing) {
+      st.clock += dt;
+      if (frontIt.apps.length ? st.clock > APP_SECONDS : st.clock > ROTATE_SECONDS) {
+        if (frontIt.apps.length && frontIt.cur >= 0 && frontIt.cur < frontIt.apps.length - 1) showApp(frontIt, frontIt.cur + 1);
+        else select(st.sel + 1);
+      }
+    }
+    const pos = st.scrubbing ? st.pos.v : st.pos.step(dt);
+    if (!st.scrubbing) scrub.value = String(((pos % n) + n) % n);
     if (!st.dragging) st.spin = damp(st.spin, 0, 2.5, dt);
     for (let i = 0; i < n; i++) {
       const it = carousel.items[i], o = _wrap(i - pos, n), a = Math.abs(o), s = Math.sign(o);
@@ -347,10 +414,23 @@ function tick(dt, t) {
       const z = -Math.min(a, 2.5) * 0.15 + (a < 0.5 ? 0.03 * (1 - a * 2) : 0);
       const front = Math.max(0, 1 - a);
       it.wrap.position.set(x, 0.02, z);
-      it.wrap.rotation.y = -clamp(o, -1, 1) * 0.75 + front * (Math.sin(t * 0.45) * 0.32 + st.spin);
+      it.wrap.rotation.y = -clamp(o, -1, 1) * 0.75 + front * (Math.sin(t * 0.45) * (it.cur >= 0 ? 0.12 : 0.32) + st.spin);
       it.wrap.scale.setScalar(1 - Math.min(a, 2.5) * 0.16);
       it.wrap.visible = a < 2.7;
       it.hitbox.scale.set(a < 0.5 ? 1 : 0.6, 1, 1);
+      // The front device's 3D app grows out of its screen; others sink back in and reset.
+      const isFront = i === st.sel && a < 0.35;
+      if (isFront && it.apps.length && it.cur < 0) showApp(it, 0);
+      if (it.cur >= 0) {
+        it.ext.to = isFront ? 1 : 0;
+        const e = Math.max(0, it.ext.step(dt));
+        it.holder.visible = e > 0.01;
+        const g = 0.55 + 0.45 * Math.min(1, e);
+        it.holder.scale.set(g, g, Math.max(0.001, e));
+        const inst = activeInst(it);
+        if (it.holder.visible) inst?.update?.(dt, t, hoverHit && within(hoverHit.object, it.holder) ? hoverHit : null, e);
+        if (!isFront && e < 0.02) { if (inst) inst.group.visible = false; it.holder.visible = false; it.cur = -1; }
+      }
     }
     repaint -= dt;
     if (repaint <= 0) {
@@ -452,7 +532,7 @@ async function boot() {
   await setBrand(st.brandId, { keepView: true });
   if (params.has('device')) { select(Number(params.get('device')) || 0); st.pos.v = st.pos.to; }
   // Test hook: ?settle=N fast-forwards N animation steps (headless browsers barely run rAF).
-  if (params.has('settle')) { const n = Number(params.get('settle')) || 240; for (let i = 0; i < n; i++) tick(1 / 60, i / 60); }
+  if (params.has('settle')) { const n = Number(params.get('settle')) || 240; const t0 = Math.max(0, performance.now() / 1000 - n / 60); for (let i = 0; i < n; i++) tick(1 / 60, t0 + i / 60); }
 
   if (!params.has('mono')) {
     try { wall = await createInline3D({ lazy: false }); } catch (e) { console.warn('[spatial-ui] inline-3D unavailable', e); }
@@ -485,4 +565,4 @@ async function boot() {
   }
   window.lab = { st, setBrand, setView, select, get brand() { return brand; }, get carousel() { return carousel; } };
 }
-boot().catch((e) => { console.error(e); setStatus('Could not start: ' + (e?.message || e), 'warn'); cover.textContent = 'Could not start the lab.'; });
+boot().catch((e) => { console.error(e?.stack || e); setStatus('Could not start: ' + (e?.message || e), 'warn'); cover.textContent = 'Could not start the lab.'; });

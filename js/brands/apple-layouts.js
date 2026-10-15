@@ -602,4 +602,155 @@ export const layouts = [
     hint: 'Hover to focus · click to change the hero',
     build: layoutHome,
   },
+  {
+    key: 'os', name: 'visionOS for screens', short: 'visionOS for screens', tagline: 'The display becomes a window into a room you can arrange',
+    blurb: 'A spatial OS made for a glasses-free screen instead of a headset. The display is a window: an Environment fills the space behind the glass, app windows stand on a curved shelf at different depths, and a launcher of round icons orbits in front. Focusing a window pulls it up to the glass, notifications fly in from the side at their own depth, and a Liquid Glass control strip floats nearest you.',
+    points: ['An Environment (Yosemite, the Moon, a lake at night) in three depth layers behind the glass', 'Windows stand on a curved shelf: the middle one furthest, the sides wrapping toward you', 'Click a window to pull it to the glass; click it again to put it back', 'A launcher of round icons orbits in front, and notifications arrive from the side in depth'],
+    how: 'Drag sideways to turn the shelf. Click a window to focus it. Click a launcher icon to open its window (Settings changes the Environment). Use the control strip for Home and Environment.',
+    hint: 'Drag the shelf · click a window or an orbiting icon',
+    build: layoutOS,
+  },
 ];
+
+// =====================================================================================================
+// Spatial OS: visionOS made for a screen. The display is a window into a room.
+// =====================================================================================================
+const ENVS = [
+  { name: 'Yosemite', sky: ['#6fa9ef', '#bfdcff', '#fff1d6'], far: '#8ea6c8', mid: '#55745f', near: '#2f4a3a', orb: 'rgba(255,248,225,0.95)', orbR: 0.05, stars: false, lake: '#6f9cc4' },
+  { name: 'The Moon', sky: ['#000004', '#05050f', '#141420'], far: '#5a5a64', mid: '#45454f', near: '#2c2c34', orb: '#7fb2ff', orbR: 0.07, stars: true, earth: true },
+  { name: 'Lake at night', sky: ['#050c26', '#17255a', '#3d2c69'], far: '#1f2550', mid: '#151b3a', near: '#0b1024', orb: 'rgba(255,244,210,0.95)', orbR: 0.035, stars: true, lake: '#1b2a5e' },
+];
+const OS_WINDOWS = ['safari', 'photos', 'music', 'notes', 'finder'];
+const OS_DRAW = () => ({ ...APPWIN, finder: MACWIN.finder });
+const OS_LAUNCH = ['safari', 'photos', 'music', 'notes', 'files', 'tv', 'settings'];
+
+function layoutOS() {
+  const group = new THREE.Group(), targets = [];
+  let env = 0;
+  // --- the Environment, in three layers behind the glass ---
+  const ridge = (c, w, h, base, amp, freq, seed, col) => {
+    c.fillStyle = col; c.beginPath(); c.moveTo(0, h);
+    for (let x = 0; x <= w; x += w / 60) c.lineTo(x, h * (base - amp * (0.55 * Math.sin(x / w * freq + seed) + 0.3 * Math.sin(x / w * freq * 2.7 + seed * 2) + 0.15 * Math.sin(x / w * freq * 6.1))));
+    c.lineTo(w, h); c.fill();
+  };
+  const sky = tp(2.5, 1.4, 0, 700, (c, w, h) => {
+    const E = ENVS[env];
+    c.fillStyle = grad(c, 0, 0, 0, h, E.sky); c.fillRect(0, 0, w, h);
+    if (E.stars) for (let i = 0; i < 260; i++) { const x = (Math.sin(i * 91.7) * 0.5 + 0.5) * w, y = (Math.sin(i * 37.3) * 0.5 + 0.5) * h * 0.7; c.fillStyle = `rgba(255,255,255,${0.3 + 0.7 * ((i * 13) % 10) / 10})`; c.fillRect(x, y, 2, 2); }
+    const ox = w * 0.7, oy = h * 0.2, r = h * E.orbR * 2.4;
+    const gl = c.createRadialGradient(ox, oy, 0, ox, oy, r * 3); gl.addColorStop(0, E.orb); gl.addColorStop(1, 'rgba(255,255,255,0)'); c.fillStyle = gl; c.fillRect(0, 0, w, h);
+    c.beginPath(); c.arc(ox, oy, r, 0, Math.PI * 2); c.fillStyle = E.earth ? '#3d7bd9' : E.orb; c.fill();
+    if (E.earth) { c.fillStyle = '#4caf6a'; c.beginPath(); c.ellipse(ox - r * 0.2, oy - r * 0.1, r * 0.4, r * 0.25, 0.5, 0, Math.PI * 2); c.fill(); c.fillStyle = 'rgba(255,255,255,0.7)'; c.beginPath(); c.ellipse(ox + r * 0.3, oy + r * 0.3, r * 0.35, r * 0.12, -0.3, 0, Math.PI * 2); c.fill(); }
+  });
+  sky.material.transparent = false; sky.position.z = -0.36; group.add(sky);
+  const far = tp(2.3, 1.3, 0, 600, (c, w, h) => ridge(c, w, h, 0.62, 0.22, 9, 1.3 + env, ENVS[env].far)); far.position.z = -0.3; group.add(far);
+  const mid = tp(2.2, 1.25, 0, 600, (c, w, h) => {
+    const E = ENVS[env];
+    ridge(c, w, h, 0.74, 0.16, 6, 4.1 + env, E.mid);
+    if (E.lake) { c.fillStyle = E.lake; c.globalAlpha = 0.85; c.fillRect(0, h * 0.8, w, h * 0.2); c.globalAlpha = 1; c.fillStyle = 'rgba(255,255,255,0.18)'; for (let i = 0; i < 14; i++) c.fillRect(w * (0.55 + Math.sin(i) * 0.12), h * (0.82 + i * 0.012), w * 0.08, 2); }
+  });
+  mid.position.z = -0.24; group.add(mid);
+  const near = tp(2.1, 1.2, 0, 600, (c, w, h) => ridge(c, w, h, 0.93, 0.08, 4, 7.7 + env, ENVS[env].near)); near.position.z = -0.18; group.add(near);
+  const envLayers = [sky, far, mid, near];
+  const setEnv = (i) => { env = (i + ENVS.length) % ENVS.length; envLayers.forEach((m) => m.userData.tex.redraw()); strip.userData.tex.redraw(); };
+
+  // --- windows on a curved shelf ---
+  const draw = OS_DRAW();
+  const wins = OS_WINDOWS.map((id, i) => {
+    const m = tp(0.36, 0.24, 0.02, 520, (c, w, h) => draw[id](c, w, h, w / 660));
+    m.userData = { ...m.userData, act: 'win', i, id, x: new Spring(0, 120, 15), y: new Spring(0, 120, 15), z: new Spring(-0.2, 120, 15), ry: new Spring(0, 120, 15), s: new Spring(1, 120, 15) };
+    m.renderOrder = 5;
+    group.add(m); targets.push(m); return m;
+  });
+  let off = 0, dragBase = null, focus = -1;
+
+  // --- the launcher: round icons orbiting in front ---
+  const ring = new THREE.Group(); ring.position.set(0, -0.22, 0.03); group.add(ring);
+  const orbit = new THREE.Mesh(new THREE.TorusGeometry(1, 0.004, 6, 120), new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.25 }));
+  orbit.rotation.x = Math.PI / 2; orbit.scale.set(0.34, 0.1, 1); ring.add(orbit);
+  const icons = OS_LAUNCH.map((id) => { const ic = appSlab(id, 0.07, { round: true }); ring.add(ic); targets.push(ic); return ic; });
+  let spinA = 0;
+
+  // --- a notification that flies in from the side, in depth ---
+  const note = tp(0.34, 0.085, 0.04, 200, (c, w, h) => {
+    const k = h / 85;
+    lg(c, 2, 2, w - 4, h - 4, 38 * k, { tint: 'rgba(40,44,56,0.82)', rim: 0.8 });
+    appIcon(c, 'photos', 14 * k, 14 * k, 56 * k);
+    text(c, 'New spatial memory', 84 * k, 38 * k, { size: 21 * k, weight: 700, font: F });
+    text(c, 'Big Sur · tap to open in Photos', 84 * k, 64 * k, { size: 16 * k, weight: 500, font: F, color: 'rgba(255,255,255,0.75)' });
+  });
+  note.userData.act = 'note'; group.add(note); targets.push(note);
+  const nx = new Spring(1.15, 70, 13), nz = new Spring(-0.3, 70, 13);
+  let noteT = 2;
+
+  // --- the control strip, nearest the viewer ---
+  const strip = tp(0.7, 0.07, 0.035, 160, (c, w, h) => {
+    const k = h / 70;
+    lg(c, 2, 2, w - 4, h - 4, 33 * k, { tint: 'rgba(36,40,52,0.78)', rim: 0.8 });
+    text(c, `Environment · ${ENVS[env].name}`, w / 2, 45 * k, { size: 21 * k, weight: 600, font: F, align: 'center' });
+  });
+  strip.position.set(0, -0.37, 0.12); group.add(strip);
+  const btn = (label, g, x, act) => {
+    const b = tp(0.085, 0.05, 0.025, 120, (c, w, h) => { const k = h / 50; lg(c, 2, 2, w - 4, h - 4, 23 * k, { tint: 'rgba(255,255,255,0.22)', rim: 0.9 }); glyph(c, g, 22 * k, h / 2, 22 * k, '#fff'); text(c, label, 40 * k, 32 * k, { size: 15 * k, weight: 700, font: F }); });
+    b.position.set(x, -0.37, 0.135); b.userData.act = act; group.add(b); targets.push(b); return b;
+  };
+  const homeB = btn('Home', 'home', -0.28, 'home');
+  const envB = btn('Next', 'sun', 0.28, 'env');
+
+  const hov = (hit, o) => { for (let p = hit?.object; p; p = p.parent) if (p === o) return true; return false; };
+  return {
+    group, targets,
+    enter() { noteT = 2; },
+    drag(dx) { if (dragBase === null) dragBase = off; off = clamp(dragBase + dx * 0.004, -1.1, 1.1); },
+    dragEnd() { dragBase = null; },
+    update(dt, t, hit) {
+      // Environment layers drift a little for parallax.
+      envLayers.forEach((m, i) => { m.position.x = Math.sin(t * 0.07 + i) * 0.01 * i; });
+      // Shelf.
+      if (dragBase === null && focus < 0) off = damp(off, Math.round(off / 0.5) * 0.5, 2, dt);
+      wins.forEach((m, i) => {
+        const u = m.userData, th = (i - 2) * 0.5 + off;
+        if (i === focus) { u.x.to = 0; u.y.to = 0.06; u.z.to = 0.03; u.ry.to = 0; u.s.to = 1.75; }
+        else {
+          const h = hov(hit, m) && focus < 0;
+          u.x.to = Math.sin(th) * 0.86; u.y.to = 0.1; u.z.to = -0.17 + (1 - Math.cos(th)) * 0.36 + (h ? 0.03 : 0) - (focus >= 0 ? 0.06 : 0);
+          u.ry.to = -th * 0.85; u.s.to = (h ? 1.06 : 1) * (focus >= 0 ? 0.85 : 1);
+        }
+        m.position.set(u.x.step(dt), u.y.step(dt), u.z.step(dt)); m.rotation.y = u.ry.step(dt); m.scale.setScalar(u.s.step(dt));
+        m.renderOrder = i === focus ? 9 : 5;
+      });
+      // Launcher orbit (pauses while you point at it).
+      const onIcon = icons.find((ic) => hov(hit, ic));
+      if (!onIcon) spinA += dt * 0.22;
+      icons.forEach((ic, i) => {
+        const a = spinA + (i / icons.length) * Math.PI * 2, fr = (Math.sin(a) + 1) / 2;
+        ic.position.set(Math.cos(a) * 0.34, (ic === onIcon ? 0.03 : 0) + Math.sin(a) * 0.012, Math.sin(a) * 0.1);
+        ic.scale.setScalar((0.7 + 0.45 * fr) * (ic === onIcon ? 1.25 : 1));
+        ic.rotation.y = 0;
+      });
+      // Notification fly-in every 8 s, holds ~3.5 s.
+      noteT += dt;
+      const cyc = noteT % 8, show = cyc > 1 && cyc < 4.5;
+      nx.to = show ? 0.47 : 1.15; nz.to = show ? 0.09 : -0.3;
+      note.position.set(nx.step(dt), 0.33, nz.step(dt)); note.rotation.y = -0.25 * (1 - (show ? 1 : 0)) - 0.12;
+      [homeB, envB].forEach((b) => b.scale.setScalar(hov(hit, b) ? 1.12 : 1));
+    },
+    click(hit) {
+      let a = null, ic = null;
+      for (let p = hit?.object; p; p = p.parent) { if (p.userData.act && !a) a = p.userData; if (p.userData.icon) ic = p.userData.icon; }
+      if (ic) {
+        const id = ic.userData.id;
+        if (id === 'settings') return setEnv(env + 1);
+        if (id === 'tv') { focus = -1; return setEnv(1); }
+        const w = OS_WINDOWS.indexOf(id === 'files' ? 'finder' : id);
+        if (w >= 0) { focus = w; off = -(w - 2) * 0.5; }
+        return;
+      }
+      if (a?.act === 'win') focus = focus === a.i ? -1 : a.i;
+      else if (a?.act === 'note') { focus = OS_WINDOWS.indexOf('photos'); noteT = 4.6; }
+      else if (a?.act === 'home') { focus = -1; off = 0; }
+      else if (a?.act === 'env') setEnv(env + 1);
+      else focus = -1;
+    },
+  };
+}

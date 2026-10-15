@@ -694,6 +694,192 @@ function tvHome() {
   };
 }
 
+// =====================================================================================================
+// Spatial OS: One UI XR for screens. A room seen through the glass, app panels docked around you on an
+// arc, the Now Bar floating in front, a Galaxy AI orb that pulls answers forward, and SmartThings devices
+// standing in the room where they really are.
+// =====================================================================================================
+const easeIn = (since, i) => { const x = Math.min(1, Math.max(0, (since - i * 0.1) / 0.5)); return 1 - Math.pow(1 - x, 3); };
+
+function oneUiXR() {
+  const group = new THREE.Group(), targets = [];
+  const world = new THREE.Group(); group.add(world);
+  const std = (c, o = {}) => new THREE.MeshStandardMaterial({ color: c, roughness: 0.75, metalness: 0.05, ...o });
+
+  // --- the room, behind the glass ---------------------------------------------------------------------
+  const room = new THREE.Group(); world.add(room);
+  const floorTex = canvasTex(512, 512, (c, w, h) => {
+    c.fillStyle = '#2a2420'; c.fillRect(0, 0, w, h);
+    for (let i = 0; i < 16; i++) { c.fillStyle = i % 2 ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.08)'; c.fillRect(0, (i * h) / 16, w, h / 16); }
+  });
+  const floor = new THREE.Mesh(new THREE.PlaneGeometry(2.2, 0.7), new THREE.MeshStandardMaterial({ map: floorTex, roughness: 0.85 }));
+  floor.rotation.x = -Math.PI / 2; floor.position.set(0, -0.4, -0.2); room.add(floor);
+  const wallTex = canvasTex(1024, 360, (c, w, h) => {
+    c.fillStyle = grad(c, 0, 0, 0, h, ['#1c2236', '#2b2a3a']); c.fillRect(0, 0, w, h);
+    c.fillStyle = grad(c, 0, 0, 0, h, ['#4b6fae', '#d98f6a']); c.fillRect(w * 0.06, h * 0.12, w * 0.2, h * 0.5);
+    c.strokeStyle = '#11131b'; c.lineWidth = 8; c.strokeRect(w * 0.06, h * 0.12, w * 0.2, h * 0.5);
+    c.beginPath(); c.moveTo(w * 0.16, h * 0.12); c.lineTo(w * 0.16, h * 0.62); c.stroke();
+  });
+  const wall = new THREE.Mesh(new THREE.PlaneGeometry(2.2, 0.78), new THREE.MeshStandardMaterial({ map: wallTex, roughness: 0.9 }));
+  wall.position.set(0, -0.01, -0.35); room.add(wall);
+  const sofa = new THREE.Group(); sofa.position.set(-0.32, -0.4, -0.27); room.add(sofa);
+  [[0.5, 0.07, 0.14, 0, 0.06, 0], [0.5, 0.12, 0.04, 0, 0.14, -0.05], [0.04, 0.1, 0.14, -0.25, 0.1, 0], [0.04, 0.1, 0.14, 0.25, 0.1, 0]].forEach(([w, h, d, x, y, z]) => {
+    const m = new THREE.Mesh(slabGeo(w, h, d, 0.015, 0.008), std(0x5c6f8f)); m.position.set(x, y, z); sofa.add(m);
+  });
+  const table = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.07, 0.012, 32), std(0xc9a77c, { roughness: 0.5 })); table.position.set(-0.3, -0.33, -0.12); room.add(table);
+  const tleg = new THREE.Mesh(new THREE.CylinderGeometry(0.008, 0.008, 0.06, 8), std(0x333333)); tleg.position.set(-0.3, -0.37, -0.12); room.add(tleg);
+  const pot = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.024, 0.05, 16), std(0xe9e4dc)); pot.position.set(0.62, -0.375, -0.26); room.add(pot);
+  for (let i = 0; i < 6; i++) { const leaf = new THREE.Mesh(new THREE.SphereGeometry(0.03, 10, 8), std(0x3f8f55)); leaf.position.set(0.62 + Math.cos(i) * 0.025, -0.32 + (i % 3) * 0.03, -0.26 + Math.sin(i) * 0.02); room.add(leaf); }
+
+  // --- SmartThings devices, where they are in the room ------------------------------------------------
+  const DEV = [];
+  const devTag = (name, on) => texPanel(0.2, 0.04, 0, 64, (c, w, h) => {
+    fillRR(c, 0, 0, w, h, h / 2, 'rgba(14,16,24,0.88)');
+    c.beginPath(); c.arc(h / 2, h / 2, h * 0.24, 0, Math.PI * 2); c.fillStyle = on() ? '#4fe0a0' : '#666c7a'; c.fill();
+    text(c, `${name} · ${on() ? 'On' : 'Off'}`, h * 0.95, h * 0.68, { size: h * 0.46, weight: 700, font: F });
+  });
+  let lampOn = true, tvOn = true, acOn = false;
+  const lamp = new THREE.Group(); lamp.position.set(0.12, -0.4, -0.28); room.add(lamp);
+  const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.004, 0.004, 0.26, 8), std(0x222222)); pole.position.y = 0.13; lamp.add(pole);
+  const shade = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.05, 0.06, 24, 1, true), new THREE.MeshStandardMaterial({ color: 0xf2e6cc, emissive: 0xffc777, emissiveIntensity: 0.9, side: THREE.DoubleSide }));
+  shade.position.y = 0.27; lamp.add(shade);
+  const pool = new THREE.Mesh(new THREE.CircleGeometry(0.22, 40), new THREE.MeshBasicMaterial({ color: 0xffc777, transparent: true, opacity: 0.22, depthWrite: false, blending: THREE.AdditiveBlending }));
+  pool.rotation.x = -Math.PI / 2; pool.position.set(0.12, -0.398, -0.22); room.add(pool);
+  const lampLight = new THREE.PointLight(0xffc777, 0.35, 0.8); lampLight.position.set(0.12, -0.12, -0.26); room.add(lampLight);
+  const tvG = new THREE.Group(); tvG.position.set(0.36, -0.12, -0.335); room.add(tvG);
+  tvG.add(new THREE.Mesh(slabGeo(0.42, 0.24, 0.012, 0.008), std(0x0b0c10, { metalness: 0.4 })));
+  const tvScreen = texPanel(0.405, 0.225, 0.004, 240, (c, w, h) => {
+    if (!tvOn) { c.fillStyle = '#05060a'; c.fillRect(0, 0, w, h); return; }
+    c.fillStyle = grad(c, 0, 0, w, h, ['#0d3b6e', '#1b8ec7', '#7fe0ff']); c.fillRect(0, 0, w, h);
+    c.fillStyle = 'rgba(0,0,0,0.35)'; c.beginPath(); c.ellipse(w * 0.62, h * 0.62, w * 0.18, h * 0.08, -0.2, 0, Math.PI * 2); c.fill();
+    text(c, 'Ocean Worlds', w * 0.06, h * 0.86, { size: h * 0.12, weight: 800, font: F });
+  });
+  tvScreen.position.z = 0.007; tvG.add(tvScreen);
+  const ac = new THREE.Group(); ac.position.set(-0.62, 0.22, -0.33); room.add(ac);
+  ac.add(new THREE.Mesh(slabGeo(0.24, 0.07, 0.05, 0.02, 0.01), std(0xeef0f4, { roughness: 0.4 })));
+  const breeze = new THREE.InstancedMesh(new THREE.SphereGeometry(0.004, 6, 4), new THREE.MeshBasicMaterial({ color: 0x9ad7ff, transparent: true, opacity: 0.8 }), 40);
+  const breezeP = Array.from({ length: 40 }, () => [Math.random() * 0.22 - 0.11, Math.random()]);
+  ac.add(breeze);
+  const addDev = (obj, name, get, toggle, tagPos) => {
+    const hit = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.16, 0.12), new THREE.MeshBasicMaterial({ visible: false }));
+    obj.add(hit); hit.userData.dev = name;
+    const tag = devTag(name, get); tag.position.copy(tagPos); room.add(tag);
+    DEV.push({ name, get, toggle, tag }); targets.push(hit);
+  };
+  addDev(lamp, 'Floor lamp', () => lampOn, () => { lampOn = !lampOn; }, new THREE.Vector3(0.12, -0.05, -0.24));
+  addDev(tvG, 'Neo QLED', () => tvOn, () => { tvOn = !tvOn; tvScreen.userData.tex.redraw(); }, new THREE.Vector3(0.36, 0.03, -0.3));
+  addDev(ac, 'Wind-Free AC', () => acOn, () => { acOn = !acOn; }, new THREE.Vector3(-0.62, 0.3, -0.3));
+
+  // --- app panels docked on an arc around the viewer ----------------------------------------------------
+  const APPS = [['Gallery', 'Gallery'], ['Messages', 'Messages'], ['Internet', 'Internet'], ['Calendar', 'Calendar'], ['Notes', 'Notes']];
+  const R = 0.62, C = 0.32;   // arc radius and its centre z (on the viewer's side of the glass)
+  const panels = APPS.map(([name, title], i) => {
+    const a = (i - 2) * 0.52;
+    const tex = canvasTex(520, 380, appWindow(name, title));
+    const g = slabCard(0.3, 0.22, 0.02, tex, { depth: 0.008, color: 0xdfe3ec });
+    const bar = new THREE.Mesh(new THREE.CapsuleGeometry(0.004, 0.05, 4, 8), new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.75 }));
+    bar.rotation.z = Math.PI / 2; bar.position.set(0, -0.13, 0.004); g.add(bar);
+    g.userData = { ...g.userData, panel: i, a, p: { x: new Spring(0, 120, 15), y: new Spring(0, 120, 15), z: new Spring(-0.3, 120, 15), ry: new Spring(0, 120, 15), s: new Spring(1, 120, 15) } };
+    world.add(g); targets.push(g);
+    return g;
+  });
+  let focus = -1;
+
+  // --- Now Bar, floating in front -------------------------------------------------------------------------
+  const LIVEK = [['music', 'Midnight City', 'M83 · on Galaxy Buds', ['#ff6f91', '#7a5cff']], ['clock', 'Timer · 08:12', 'Pasta', ['#ffb547', '#f6631a']], ['car', 'Ride · 3 min', 'Gray EV · 7KX 214', ['#3e82ff', '#28c7ff']]];
+  let live = 0;
+  const nowTex = canvasTex(520, 104, (c, w, h) => {
+    fillRR(c, 0, 0, w, h, h / 2, 'rgba(14,16,24,0.95)'); strokeRR(c, 2, 2, w - 4, h - 4, h / 2 - 2, 'rgba(255,255,255,0.18)', 3);
+    const [g, t1, t2, cols] = LIVEK[live];
+    c.beginPath(); c.arc(h / 2, h / 2, h * 0.36, 0, Math.PI * 2); c.fillStyle = grad(c, 0, 0, 0, h, cols); c.fill(); glyph(c, g, h / 2, h / 2, h * 0.38, '#fff');
+    text(c, t1, h * 0.98, h * 0.46, { size: h * 0.3, weight: 800, font: F });
+    text(c, t2, h * 0.98, h * 0.78, { size: h * 0.2, weight: 500, font: F, color: 'rgba(255,255,255,0.7)' });
+  });
+  const nowBarM = slabCard(0.4, 0.08, 0.0395, nowTex, { depth: 0.022, color: 0x10121a, transparent: true });
+  nowBarM.position.set(0.05, -0.34, 0.14); nowBarM.userData.now = true; world.add(nowBarM); targets.push(nowBarM);
+
+  // --- Galaxy AI orb and the answer it pulls forward -----------------------------------------------------
+  const orb = new THREE.Group(); orb.position.set(-0.6, -0.3, 0.12); world.add(orb);
+  const orbCore = new THREE.Mesh(new THREE.SphereGeometry(0.045, 32, 24), new THREE.MeshPhysicalMaterial({ color: 0x8c7bff, emissive: 0x5b6dff, emissiveIntensity: 0.9, roughness: 0.15, clearcoat: 1 }));
+  orb.add(orbCore); orbCore.userData.ai = true; targets.push(orbCore);
+  const halo = new THREE.Mesh(new THREE.TorusGeometry(0.062, 0.004, 8, 60), new THREE.MeshBasicMaterial({ color: 0xa68bff, transparent: true, opacity: 0.7 }));
+  orb.add(halo);
+  const orbLbl = label('Galaxy AI', 0.016); orbLbl.position.set(0, -0.07, 0); orb.add(orbLbl);
+  const answerTex = canvasTex(560, 300, (c, w, h) => {
+    fillRR(c, 0, 0, w, h, 34, 'rgba(16,18,28,0.96)'); strokeRR(c, 2, 2, w - 4, h - 4, 32, 'rgba(166,139,255,0.6)', 4);
+    glyph(c, 'sparkle', 40, 44, 32, '#a68bff');
+    text(c, 'Galaxy AI', 66, 54, { size: 26, weight: 800, font: F, color: '#c9bcff' });
+    text(c, 'Movie night? I can set the room.', 32, 110, { size: 28, weight: 700, font: F });
+    ['Dim the floor lamp', 'Cool the room with Wind-Free', 'Put Ocean Worlds on the TV'].forEach((s, i) => {
+      fillRR(c, 32, 136 + i * 50, w - 64, 40, 20, 'rgba(62,130,255,0.25)');
+      text(c, s, 52, 164 + i * 50, { size: 20, weight: 600, font: F });
+    });
+  });
+  const answer = slabCard(0.4, 0.215, 0.025, answerTex, { depth: 0.01, color: 0x141624, transparent: true });
+  answer.visible = false; answer.userData.answer = true; world.add(answer); targets.push(answer);
+  const ans = new Spring(0, 70, 12);
+  let aiOpen = false;
+
+  // --- drag to look around ------------------------------------------------------------------------------
+  const yaw = new Spring(0, 40, 10), pitch = new Spring(0, 40, 10);
+  let dragYaw = 0, dragPitch = 0, dragging = false, since = 0;
+  const m4 = new THREE.Matrix4();
+
+  return {
+    group, targets,
+    enter() { since = 0; },
+    update(dt, t, hit) {
+      since += dt;
+      const hovP = owner(hit?.object, 'panel');
+      panels.forEach((g, i) => {
+        const p = g.userData.p, f = focus === i, a = focus >= 0 && !f ? g.userData.a * 1.15 : g.userData.a;
+        const lift = hovP === g && !f ? 0.035 : 0;
+        p.x.to = f ? 0 : Math.sin(a) * R;
+        p.z.to = f ? 0.1 : C - Math.cos(a) * R - (focus >= 0 && !f ? 0.06 : 0) + lift;
+        p.y.to = f ? 0.04 : 0.19 - Math.abs(i - 2) * 0.015;
+        p.ry.to = f ? 0 : -a;
+        p.s.to = f ? 1.55 : 1;
+        const k = easeIn(since, i);
+        g.position.set(p.x.step(dt), p.y.step(dt) - (1 - k) * 0.2, p.z.step(dt));
+        g.rotation.y = p.ry.step(dt); g.scale.setScalar(Math.max(0.001, p.s.step(dt) * k));
+      });
+      nowBarM.position.y = -0.34 + Math.sin(t * 1.4) * 0.006;
+      nowBarM.position.z = 0.14 + (owner(hit?.object, 'now') ? 0.03 : 0);
+      orbCore.scale.setScalar(1 + Math.sin(t * 2.4) * 0.06 + (owner(hit?.object, 'ai') ? 0.15 : 0));
+      orbCore.material.emissive.setHSL(0.68 + Math.sin(t * 0.7) * 0.06, 0.8, 0.5);
+      halo.rotation.x = t * 0.9; halo.rotation.y = t * 0.6;
+      ans.to = aiOpen ? 1 : 0;
+      const k = Math.max(0, ans.step(dt));
+      answer.visible = k > 0.02;
+      answer.position.set(-0.6 + 0.6 * k, -0.3 + 0.32 * k, 0.12 + 0.04 * Math.sin(k * Math.PI));
+      answer.scale.setScalar(Math.max(0.001, 0.15 + 0.95 * k));
+      shade.material.emissiveIntensity = lampOn ? 0.9 : 0.05; pool.visible = lampOn; lampLight.intensity = lampOn ? 0.35 : 0;
+      breeze.visible = acOn;
+      if (acOn) {
+        breezeP.forEach((b, i) => { b[1] = (b[1] + dt * 0.5) % 1; m4.makeTranslation(b[0], -0.04 - b[1] * 0.18, 0.02 + b[1] * 0.12); breeze.setMatrixAt(i, m4); });
+        breeze.instanceMatrix.needsUpdate = true;
+      }
+      yaw.to = dragging ? dragYaw : Math.sin(t * 0.18) * 0.05; pitch.to = dragging ? dragPitch : 0;
+      world.rotation.y = yaw.step(dt); world.rotation.x = pitch.step(dt);
+    },
+    click(hit) {
+      const o = hit?.object, d = o?.userData.dev;
+      if (d) { const dev = DEV.find((x) => x.name === d); dev.toggle(); dev.tag.userData.tex.redraw(); return; }
+      if (owner(o, 'now')) { live = (live + 1) % LIVEK.length; nowTex.redraw(); return; }
+      if (owner(o, 'ai')) { aiOpen = !aiOpen; return; }
+      if (owner(o, 'answer')) {
+        // Galaxy AI does what it suggested: dim the lamp, cool the room, put the show on.
+        lampOn = false; acOn = true; tvOn = true; tvScreen.userData.tex.redraw(); DEV.forEach((x) => x.tag.userData.tex.redraw()); aiOpen = false; return;
+      }
+      const pnl = owner(o, 'panel');
+      if (pnl) { focus = focus === pnl.userData.panel ? -1 : pnl.userData.panel; return; }
+      focus = -1; aiOpen = false;
+    },
+    drag(dx, dy) { dragging = true; dragYaw = clamp(dx * 0.0025, -0.4, 0.4); dragPitch = clamp(dy * 0.0012, -0.12, 0.12); },
+    dragEnd() { dragging = false; },
+  };
+}
+
 export const layouts = [
   {
     key: 'icons', name: 'One UI home screen, in 3D', short: 'App grid', tagline: 'Galaxy S26 Ultra · One UI 9, the traditional layout with real depth',
@@ -734,5 +920,13 @@ export const layouts = [
     how: 'Click a side poster to focus it, click the focused one to play it. Use the chips above it, or click the little room to toggle the lamp.',
     hint: 'Click posters · use the Vision AI chips',
     build: tvHome,
+  },
+  {
+    key: 'os', name: 'One UI XR, made for screens', short: 'One UI XR', tagline: 'A headset-style OS that lives behind and in front of the glass',
+    blurb: 'Galaxy XR puts One UI windows in your room. On a glasses-free 3D screen the room is on the other side of the glass instead: app panels dock on an arc around you, the Now Bar floats in front, a Galaxy AI orb pulls answers forward, and SmartThings devices sit in the room where they really are, so you switch the lamp by touching the lamp.',
+    points: ['App panels on an arc around the viewer, each with an Android XR grab bar', 'Focus pulls a panel to the front of the glass; the rest step back', 'Galaxy AI answers arrive as a card that flies out of the orb', 'SmartThings devices are controlled in place, with status tags above them'],
+    how: 'Click a panel to bring it forward. Click the lamp, TV or AC to toggle it. Click the Galaxy AI orb, then its card, to set the room for a movie. Click the Now Bar to switch the live activity. Drag to look around.',
+    hint: 'Click panels, devices and the AI orb · drag to look around',
+    build: oneUiXR,
   },
 ];

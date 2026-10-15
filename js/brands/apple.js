@@ -8,6 +8,7 @@ import {
   glyph, statusBar, clockStr, dateStr, screenGeo,
 } from '../kit.js';
 import { layouts } from './apple-layouts.js';
+import { APPLE_APPS } from './apple-apps.js';
 
 const F = FONT.apple;
 
@@ -663,36 +664,42 @@ export default {
       name: 'iPhone 18 Pro', short: 'iPhone 18 Pro', os: 'iOS 27', year: '2026',
       blurb: 'The home screen in Liquid Glass: icons and widgets get glass edges, the dock floats as a glass shelf, and Search sits in a pill above it.',
       ui: ['Floating glass dock and search pill', 'Clear and tinted icon styles with specular edges', 'Widgets as glass cards over the wallpaper', 'Dynamic Island for live activities'],
+      apps: APPLE_APPS.iphone,
       build: () => D.phone({ color: 0x3a4a68, cut: 'island', cams: 'apple', screen: { draw: iosHome } }),
     },
     {
       name: 'iPhone 18 Pro Max · Lock Screen', short: 'Lock Screen', os: 'iOS 27', year: '2026',
       blurb: 'The lock screen clock is cut from glass and scales to fit the photo; notifications and Now Playing float on glass platters.',
       ui: ['Glass clock that refracts the wallpaper', 'Notifications stack on translucent platters', 'Flashlight and Camera as glass buttons'],
+      apps: APPLE_APPS.lock,
       build: () => D.phone({ w: 0.38, h: 0.82, color: 0xc06a2f, cut: 'island', cams: 'apple', screen: { draw: iosLock } }),
     },
     {
       name: 'iPhone Duo', short: 'iPhone Duo', os: 'iOS 27', year: '2026',
       blurb: "Apple's first foldable opens into a small tablet, so iOS shows two panes: a glass sidebar list and the conversation side by side.",
       ui: ['Two-pane layouts when unfolded', 'Glass sidebar over the wallpaper', 'Same Liquid Glass controls as iPhone'],
+      apps: APPLE_APPS.duo,
       build: () => D.foldable({ w: 0.36, h: 0.5, color: 0xd9dade, open: Math.PI * 0.84, cams: 'apple', screen: { draw: duo } }),
     },
     {
       name: 'iPad Pro', short: 'iPad Pro', os: 'iPadOS 27', year: '2026',
       blurb: 'Windows you can resize and overlap, with traffic-light controls, a menu bar and a glass dock, while staying touch-first.',
       ui: ['Free-form windows with traffic lights', 'Menu bar on swipe down', 'Floating glass sidebars and tab bars', 'Glass dock'],
+      apps: APPLE_APPS.ipad,
       build: () => D.tablet({ color: 0x8e9299, screen: { draw: ipadOS } }),
     },
     {
       name: 'MacBook Pro', short: 'MacBook Pro', os: 'macOS 27', year: '2026',
       blurb: 'A fully transparent menu bar, a glass sidebar that floats inside the window, and a translucent dock.',
       ui: ['Transparent menu bar', 'Floating glass sidebars in Finder and apps', 'Larger, concentric window corners', 'Glass dock and Control Center'],
+      apps: APPLE_APPS.macbook,
       build: () => D.laptop({ color: 0x2e3036, screen: { draw: (c, w, h) => macDesk(c, w, h) } }),
     },
     {
       name: 'iMac', short: 'iMac', os: 'macOS 27', year: '2026',
       blurb: 'Widgets live on the desktop, Control Center is a glass panel of toggles and sliders, all over the wallpaper.',
       ui: ['Desktop widgets', 'Glass Control Center', 'Colourful hardware, neutral glass UI'],
+      apps: APPLE_APPS.imac,
       build: () => D.desktop({ color: 0x9cc3e6, screen: { draw: (c, w, h) => macDesk(c, w, h, { variant: 'imac' }) } }),
     },
     {
@@ -700,6 +707,7 @@ export default {
       blurb: 'The Smart Stack: glass widgets that stack under the watch face, with Activity rings and weather a scroll away.',
       ui: ['Smart Stack of glass widgets', 'Activity rings', 'Glass controls over a black OLED face'],
       fit: [0.5, 0.66],
+      apps: APPLE_APPS.watch,
       build: () => D.watch({ shape: 'rect', size: 0.4, color: 0x222428, band: 0x2c3b52, screen: { draw: watchOS } }),
     },
     {
@@ -707,6 +715,7 @@ export default {
       blurb: 'Where Liquid Glass came from: glass windows floating in the room, round app icons on the Home View and spatial photos.',
       ui: ['Windows made of glass that adapt to the light in the room', 'Round icons on the Home View', 'Ornaments float in front of windows', 'Look and tap to select'],
       fit: [1.05, 0.7],
+      apps: APPLE_APPS.vision,
       build: () => D.headset({
         windows: [
           { w: 0.62, h: 0.42, x: -0.36, y: 0.14, z: -0.12, ry: 0.22, screen: { draw: visionSafari } },
@@ -719,6 +728,7 @@ export default {
       name: 'Apple TV 4K', short: 'Apple TV', os: 'tvOS 27', year: '2026',
       blurb: 'A glass tab bar over full-bleed artwork, and the app row and buttons pick up the same glass highlights.',
       ui: ['Glass tab bar at the top', 'Full-screen top shelf artwork', 'Focus lifts tiles with a glass sheen'],
+      apps: APPLE_APPS.tv,
       build: () => D.streamer({ box: 'square', boxColor: 0x111214, screen: { draw: tvOS } }),
     },
   ],

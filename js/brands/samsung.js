@@ -9,6 +9,7 @@
 import * as THREE from 'three';
 import { phone, foldable, tablet, laptop, watch, tv, headset } from '../devices.js';
 import { layouts } from './samsung-layouts.js';
+import * as A from './samsung-apps.js';
 import {
   canvasTex, panel, slabGeo, screenGeo, rr, fillRR, strokeRR, squircle, text, grad, blobs,
   clockStr, dateStr, statusBar, glyph, FONT, Spring, damp, clamp, lerp, ease,
@@ -432,6 +433,19 @@ const devices = [
     }),
   },
 ];
+
+// 3D-screen apps that grow out of each device when it reaches the front of the carousel (samsung-apps.js).
+const APPS3D = {
+  'S26 Ultra': [A.videoCall(), A.weather(), A.nowStack()],
+  'Z Fold8 Ultra': [A.route3d(), A.depthGallery(), A.weather('Seoul')],
+  'Z Flip8': [A.flexWidgets(), A.reactions()],
+  Watch: [A.watchHealth(), A.watchSleep()],
+  'Tab S11 Ultra': [A.notesSketch(), A.depthGallery()],
+  'Galaxy Book': [A.quickShare(), A.modelViewer()],
+  'Neo QLED TV': [A.sports3d(), A.workoutCoach(), A.weather('Living room · San Jose')],
+  'Galaxy XR': [A.xrVolumes(), A.videoCall({ who: 'Jae Kim', where: 'Busan', skin: 0xd9a37f, hair: 0x111111, shirt: 0x7a5cff })],
+};
+devices.forEach((d) => (d.apps = APPS3D[d.short] || []));
 
 // ---- concept helpers --------------------------------------------------------------------------------
 const darkBack = () => new THREE.MeshStandardMaterial({ color: 0x0d0f15, roughness: 0.5, metalness: 0.3 });

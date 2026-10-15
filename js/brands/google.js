@@ -5,6 +5,7 @@ import * as THREE from 'three';
 import { FONT, text, fillRR, rr, blobs, statusBar, glyph, canvasTex, panel, clockStr, Spring, damp, lerp, clamp, ease } from '../kit.js';
 import { phone, foldable, watch, tablet, laptop, streamer, hub } from '../devices.js';
 import { layouts } from './google-layouts.js';
+import { GOOGLE_APPS } from './google-apps.js';
 
 const F = FONT.google;
 
@@ -348,42 +349,49 @@ const devices = [
     blurb: 'The reference Android phone: home screen, lock screen and system UI are where Material 3 Expressive shows up first.',
     ui: ['At a Glance and a shape-morphed clock widget set the tone above the app grid', 'Themed icons pick up the wallpaper’s tonal palette (dynamic color)', 'Search pill and dock live at the bottom, within thumb reach', 'Springy, physics-based motion on every swipe and tap'],
     build: () => phone({ w: 0.34, h: 0.76, r: 0.058, color: 0x6f7682, cams: 'pixel', cut: 'punch', bezel: 0.011, screen: { draw: pixelHome } }),
+    apps: GOOGLE_APPS.pixel,
   },
   {
     name: 'Pixel 11 Pro Fold', short: 'Pro Fold', os: 'Android 17 · large-screen layouts', year: '2026',
     blurb: 'Unfolded, apps move to two panes: a list on one side, the open item on the other, with a taskbar to switch apps.',
     ui: ['List-detail layouts adapt to the fold instead of stretching a phone UI', 'Taskbar pins apps for drag-to-split multitasking', 'Extended FAB and tonal surfaces carry over from the phone', 'Suggested replies as outlined chips'],
     build: () => foldable({ w: 0.36, h: 0.64, r: 0.04, color: 0x3a3e45, cams: 'pixel', open: Math.PI * 0.86, screen: { draw: foldTwoPane } }),
+    apps: GOOGLE_APPS.fold,
   },
   {
     name: 'Pixel Watch 5', short: 'Watch 5', os: 'Wear OS 6 · Material 3 Expressive', year: '2026',
     blurb: 'Round-first design: big stacked numerals, an activity arc that hugs the bezel and shape-coded complications.',
     ui: ['Content follows the round edge: arcs, curved lists, edge-hugging buttons', 'Bold stacked type that is readable at a glance', 'Complications in distinct shapes (cookie, circle, squircle)', 'Tiles swipe sideways for quick info'],
     build: () => watch({ shape: 'round', size: 0.42, color: 0xbfc3c9, band: 0x37404d, screen: { draw: watchFace, px: 640 } }),
+    apps: GOOGLE_APPS.watch,
   },
   {
     name: 'Pixel Tablet', short: 'Tablet', os: 'Android 16 · tablet mode', year: '2025',
     blurb: 'A split-screen tablet: Photos and Messages side by side with a draggable divider and a floating taskbar.',
     ui: ['Split screen with a pill-shaped drag handle', 'Floating taskbar with app drawer and pinned apps', 'Rounded message bubbles in tonal containers', 'Dynamic color across both apps'],
     build: () => tablet({ color: 0xe6e0d6, screen: { draw: tabletSplit } }),
+    apps: GOOGLE_APPS.tablet,
   },
   {
     name: 'Chromebook Plus', short: 'Chromebook', os: 'ChromeOS · Gemini built in', year: '2026',
     blurb: 'A desktop take on Material: rounded windows, a centred shelf and a Gemini side panel next to your doc.',
     ui: ['Shelf with launcher, pinned apps and a pill-shaped status area', 'Rounded browser windows with tab strips', 'Gemini panel: “Help me write” and summaries beside your work', 'Dynamic color from the wallpaper'],
     build: () => laptop({ w: 1.0, h: 0.62, color: 0x5d636c, keys: 0x202328, screen: { draw: chromeOS } }),
+    apps: GOOGLE_APPS.chromebook,
   },
   {
     name: 'Google TV Streamer', short: 'TV Streamer', os: 'Google TV', year: '2024',
     blurb: 'Ten-foot UI: a big hero banner, a pill tab bar and rows of recommendations navigated by remote.',
     ui: ['“For you” hero with one obvious primary action', 'Pill tab bar: For you, Live, Movies, Shows, Apps, Library', 'Rows of posters with a clear focus ring for D-pad navigation', 'Profiles and Gemini search up top'],
     build: () => streamer({ box: 'puck', boxColor: 0xe9e5dd, screen: { draw: googleTV } }),
+    apps: GOOGLE_APPS.tv,
   },
   {
     name: 'Nest Hub', short: 'Nest Hub', os: 'Google Home · ambient mode', year: '2025',
     blurb: 'A smart display that is mostly a photo frame: time and weather in the corner, home controls as pills.',
     ui: ['Ambient photo frame from Google Photos when idle', 'Large time and weather for across-the-room reading', 'Home controls as tonal pills (lights, thermostat, media)', 'Voice first, touch second'],
     build: () => hub({ screen: { draw: nestHub } }),
+    apps: GOOGLE_APPS.hub,
   },
   {
     name: 'Android XR glasses', short: 'XR glasses', os: 'Android XR · Gemini', year: '2026',
@@ -391,6 +399,7 @@ const devices = [
     ui: ['A single glanceable card instead of windows', 'Gemini sees what you see and answers in one line', 'Navigation as a big arrow and distance', 'Dark, translucent surfaces that do not block the world'],
     fit: [0.9, 0.6],
     build: xrGlasses,
+    apps: GOOGLE_APPS.glasses,
   },
 ];
 
