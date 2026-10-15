@@ -8,6 +8,7 @@
 
 import * as THREE from 'three';
 import { phone, foldable, tablet, laptop, watch, tv, headset } from '../devices.js';
+import { layouts } from './samsung-layouts.js';
 import {
   canvasTex, panel, slabGeo, screenGeo, rr, fillRR, strokeRR, squircle, text, grad, blobs,
   clockStr, dateStr, statusBar, glyph, FONT, Spring, damp, clamp, lerp, ease,
@@ -859,6 +860,7 @@ export default {
   lang: 'One UI 9',
   langBlurb: 'One UI puts content at the top and controls within thumb reach, with bold rounded type, soft squircle icons and frosted cards. One UI 9 keeps the 8.5 look and builds on the Now Bar and Now Brief, which surface live activities and a daily summary from the lock screen.',
   devices,
+  layouts,
   concepts: [
     {
       name: 'Now Bar, stacked', short: 'Now Bar stack', tagline: 'Live activities as a deck of cards in depth',
@@ -886,3 +888,6 @@ export default {
     },
   ],
 };
+
+// Drawing helpers shared with samsung-layouts.js (function declarations, so the import cycle is safe).
+export { icon, wallpaper, nowBar, window1, lines };

@@ -57,7 +57,8 @@
   .views button:hover, .ctl button:hover { border-color: #3a4256; }
   .views button[aria-pressed="true"] { background: color-mix(in srgb, var(--accent) 22%, var(--panel-2)); border-color: var(--accent); color: #fff; }
   .views .sep { width: 1px; height: 24px; background: var(--line); margin: 0 4px; }
-  .ctl { display: flex; gap: 8px; align-items: center; margin-left: auto; }
+  .views .grp { font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); margin: 0 0 0 10px; }
+  .ctl { display: flex; gap: 8px; align-items: center; flex-basis: 100%; justify-content: flex-end; }
   label.slider { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; color: var(--muted); }
   label.slider input { width: 110px; accent-color: var(--accent); }
 

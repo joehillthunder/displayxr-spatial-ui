@@ -7,6 +7,7 @@ import {
   canvasTex, panel, glassCard, Spring, damp, clamp, FONT, rr, fillRR, strokeRR, squircle, text, grad, blobs,
   glyph, statusBar, clockStr, dateStr, screenGeo,
 } from '../kit.js';
+import { layouts } from './apple-layouts.js';
 
 const F = FONT.apple;
 
@@ -647,6 +648,8 @@ function conceptOrnaments() {
   };
 }
 
+export { appIcon, lg, wallpaper, APPS, APP_NAMES, trafficLights };
+
 // =====================================================================================================
 export default {
   id: 'apple',
@@ -745,4 +748,5 @@ export default {
       build: conceptOrnaments,
     },
   ],
+  layouts,
 };

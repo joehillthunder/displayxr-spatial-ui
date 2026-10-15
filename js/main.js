@@ -154,16 +154,34 @@ async function setBrand(id, { keepView = false } = {}) {
   await setView(st.view);
 }
 
+// Every interactive scene a brand has, in nav order: the 3D icon layout, the reimagined form factors
+// (brand.layouts, keyed 'icons' | 'phone' | 'tablet' | 'monitor' | 'home'), then the spatial concepts ('1'..'3').
+const FORMS = { icons: '3D icon layout', phone: 'Phone', tablet: 'Tablet', monitor: 'Monitor', home: 'Home view' };
+function sceneViews() {
+  if (!brand) return [];
+  const layouts = (brand.layouts || []).map((l) => ({
+    key: l.key, def: l, group: l.key === 'icons' ? '3D icons' : 'Reimagined',
+    label: l.key === 'icons' ? 'App grid in 3D' : FORMS[l.key] || l.short || l.name,
+  }));
+  const reimagined = layouts.filter((x) => x.group === 'Reimagined');
+  reimagined.forEach((x, i) => { x.n = i + 1; x.of = reimagined.length; });
+  return [
+    ...layouts,
+    ...brand.concepts.map((c, i) => ({ key: String(i + 1), def: c, group: 'Spatial concepts', label: `${i + 1}. ${c.short || c.name}`, n: i + 1, of: brand.concepts.length })),
+  ];
+}
+const findView = (v) => sceneViews().find((x) => x.key === v);
+
 async function setView(v) {
-  if (v !== 'devices' && !brand.concepts[Number(v) - 1]) v = 'devices';
+  if (v !== 'devices' && !findView(v)) v = 'devices';
   st.view = v;
   content.clear();
   concept = null;
   if (v === 'devices') content.add(carousel.group);
   else {
-    const i = Number(v) - 1, keyId = `${brand.id}:${i}`;
+    const keyId = `${brand.id}:${v}`;
     if (!conceptCache.has(keyId)) {
-      try { conceptCache.set(keyId, brand.concepts[i].build()); } catch (e) { console.error('[spatial-ui] concept build failed', e); }
+      try { conceptCache.set(keyId, findView(v).def.build()); } catch (e) { console.error('[spatial-ui] scene build failed', v, e); }
     }
     concept = conceptCache.get(keyId);
     if (concept) { content.add(concept.group); concept.enter?.(); }
@@ -193,11 +211,14 @@ function renderViews() {
     b.onclick = () => setView(v);
     el.append(b);
   };
+  const head = (t) => { const s = document.createElement('span'); s.className = 'grp'; s.textContent = t; el.append(s); };
   add('devices', `Today's devices (${brand.devices.length})`);
-  const sep = document.createElement('span'); sep.className = 'sep'; el.append(sep);
-  brand.concepts.forEach((c, i) => add(String(i + 1), `Spatial ${i + 1}: ${c.short || c.name}`));
+  let group = null;
+  for (const x of sceneViews()) {
+    if (x.group !== group) { group = x.group; head(group); }
+    add(x.key, x.label);
+  }
   $('play').disabled = st.view !== 'devices';
-  $('prev').disabled = $('next').disabled = st.view === 'devices' ? false : false;
 }
 function renderInfo() {
   if (!brand) return;
@@ -215,16 +236,17 @@ function renderInfo() {
     $('counter').textContent = `${st.sel + 1} / ${carousel.items.length}`;
     $('hint').textContent = 'Drag to turn the device · click a side device to bring it forward';
   } else {
-    const i = Number(st.view) - 1, c = brand.concepts[i];
+    const x = findView(st.view), c = x.def;
+    const where = x.group === '3D icons' ? 'today\'s layout, in 3D' : `${x.group.toLowerCase()} ${x.n} of ${x.of}`;
     info.innerHTML = `
-      <div class="eyebrow">${esc(brand.name)} · spatial concept ${i + 1} of ${brand.concepts.length}</div>
+      <div class="eyebrow">${esc(brand.name)} · ${esc(where)}</div>
       <h2>${esc(c.name)}</h2>
       <div class="sub">${esc(c.tagline || '')}</div>
       <p>${esc(c.blurb)}</p>
       ${c.points?.length ? `<ul>${c.points.map((u) => `<li>${esc(u)}</li>`).join('')}</ul>` : ''}
       <div class="how">${esc(c.how || 'Hover to lift, click to open.')}</div>
       <div class="lang"><b>${esc(brand.lang)}.</b> ${esc(brand.langBlurb)}</div>`;
-    $('counter').textContent = `Concept ${i + 1} / ${brand.concepts.length}`;
+    $('counter').textContent = x.n ? `${x.group} · ${x.n} / ${x.of}` : x.group;
     $('hint').textContent = c.hint || 'Hover and click the floating UI';
   }
 }
@@ -244,8 +266,8 @@ function select(i, user = false) {
 function step(dir) {
   if (st.view === 'devices') select(st.sel + dir, true);
   else {
-    const n = brand.concepts.length; let i = Number(st.view) - 1 + dir;
-    if (i < 0 || i >= n) setView('devices'); else setView(String(i + 1));
+    const keys = ['devices', ...sceneViews().map((x) => x.key)];
+    setView(keys[(keys.indexOf(st.view) + dir + keys.length) % keys.length]);
   }
 }
 

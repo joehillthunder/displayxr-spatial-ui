@@ -4,6 +4,7 @@
 import * as THREE from 'three';
 import { FONT, text, fillRR, rr, blobs, statusBar, glyph, canvasTex, panel, clockStr, Spring, damp, lerp, clamp, ease } from '../kit.js';
 import { phone, foldable, watch, tablet, laptop, streamer, hub } from '../devices.js';
+import { layouts } from './google-layouts.js';
 
 const F = FONT.google;
 
@@ -765,12 +766,16 @@ function conceptGemini() {
   };
 }
 
+// Shared with google-layouts.js (used only inside build functions, so the circular import is safe).
+export { C, GEM, F, T, wrapText, shapePath, fillShape, themed, pill, photo, scene2d, radialTex, shortDate };
+
 // ---- brand ----------------------------------------------------------------------------------------------------
 export default {
   id: 'google', name: 'Google', accent: '#8ab4ff', glow: '#6d8cff',
   lang: 'Material 3 Expressive',
   langBlurb: 'Google’s 2025–26 evolution of Material You: dynamic colour from your wallpaper, bolder type, a library of 35 shapes that morph on interaction, and springy physics-based motion. Surfaces separate by tonal elevation rather than heavy shadows.',
   devices,
+  layouts,
   concepts: [
     {
       name: 'Elevation, for real', short: 'Elevation', tagline: 'Material’s tonal elevation levels become physical depth',

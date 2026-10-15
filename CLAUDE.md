@@ -11,7 +11,8 @@ Apple / Google / Samsung design languages on current devices + 3 spatial UI conc
 - `js/main.js`: the only renderer and canvas, the inline-3D session, the device carousel, the concept host, picking, URL state and the UI panel. Brand modules load lazily with `import('./brands/<id>.js')`.
 - `js/kit.js`: units, `Spring`/`damp`, rounded geometry (`screenGeo`, `slabGeo`, `panel`, `glassCard`, `fitTo`), `canvasTex(w,h,draw)` (call `tex.redraw(t)` to repaint), 2D helpers (`rr`, `fillRR`, `squircle`, `text`, `blobs`, `statusBar`) and `glyph()`, a set of icons that belong to no brand.
 - `js/devices.js`: procedural device builders (`phone`, `tablet`, `foldable` with axis `'y'` book or `'x'` flip, `laptop`, `watch`, `tv`, `desktop`, `hub`, `streamer`, `headset`, `glasses`). Each takes `screen: { draw(ctx,w,h,t) }` and returns a Group with `userData.screens`.
-- `js/brands/{apple,google,samsung}.js`: default export `{ id, name, accent, glow, lang, langBlurb, devices[], concepts[] }`.
+- `js/icons3d.js`: `icon3d({ shape, size, depth, face, side, glass })` (an extruded icon with 2D art on its face; shapes `squircle`, `circle`, `rounded`, `samsung`, `cookie`, `clover`, `pill`), plus `label3d()` and `gridPositions()`.
+- `js/brands/{apple,google,samsung}.js`: default export `{ id, name, accent, glow, lang, langBlurb, devices[], layouts[], concepts[] }`. `layouts` live in `<brand>-layouts.js` with the keys `icons` (today's phone home screen in 3D), `phone`, `tablet`, `monitor` and `home` (the reimagined interfaces), in that order.
   - device: `{ name, short, os, year, blurb, ui[], fit?, build() }`
   - concept: `{ name, short, tagline, blurb, points[], how, hint, build() → { group, targets, update(dt,t,hit), click(hit), enter?, drag?, dragEnd? } }`
 
@@ -22,7 +23,7 @@ Apple / Google / Samsung design languages on current devices + 3 spatial UI conc
 - Interfaces are hand-drawn recreations. Use no real logos and no brand marks (product names in text are fine). Keep the footer disclaimer.
 
 ## Testing
-- URL hooks: `?brand=`, `?view=devices|1|2|3`, `?device=N`, `?hold`, `?mono` (forces 2D), `?settle=N` (fast-forwards N animation steps), `?debug` (logs fps). `window.lab` exposes `{ st, setBrand, setView, select, brand, carousel }`.
+- URL hooks: `?brand=`, `?view=devices|icons|phone|tablet|monitor|home|1|2|3`, `?device=N`, `?hold`, `?mono` (forces 2D), `?settle=N` (fast-forwards N animation steps), `?debug` (logs fps). `window.lab` exposes `{ st, setBrand, setView, select, brand, carousel }`.
 - Screenshots: headless Edge with `--headless=new --use-angle=swiftshader --enable-unsafe-swiftshader --virtual-time-budget=9000 --screenshot=...`, launched from **PowerShell `Start-Process -Wait`**. Launched from Git Bash, it wrote no PNG. Use a separate `--user-data-dir` per run, and add `--enable-logging --v=0` to get console output in `chrome_debug.log`.
 - Headless virtual time runs almost no `requestAnimationFrame` frames, so **always add `&settle=300`** when checking animated concepts.
 - Check every brand × (devices + views 1–3) for console errors before pushing. Woven output on the real panel can't be screenshotted with GDI; ask the user to check depth and comfort on the Leia display.
